@@ -11,6 +11,9 @@ while True:
         jmprel = start
     if jmprel != None:
         break
+if jmprel == None:
+    print("No jmprel found")
+    exit(1)
 
 got_start_ea = SegByBase(SegByName(".got"))
 got_end_ea = SegEnd(got_start_ea)
@@ -53,7 +56,7 @@ while cur < got_end_ea:
         fails.append((cur, real_func_name))
         cur += 0x8
         continue
-        
+
     MakeNameEx(extern_ea, "__imp_" + real_func_name, 0)
     MakeNameEx(plt_offset, real_func_name + "_plt", 0)
     MakeNameEx(cur, real_func_name + "_ptr", 0)
