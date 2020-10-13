@@ -1,5 +1,10 @@
 import struct
 
+
+if not __EA64__:
+    print("Only x64 ELF binaries are supported")
+    exit(1)
+
 start = SegStart(0)
 
 jmprel = None
