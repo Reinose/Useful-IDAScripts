@@ -18,16 +18,12 @@ def main():
             return;
 
     jmprel = None
-
     cursor = image_base
     while jmprel == None:
         cursor = next_not_tail(cursor)
-        assert(cursor != BADADDR)
+        assert cursor != BADADDR, "ELF JMPREL Relocation Table not found"
         if LineA(cursor, 0) == "; ELF JMPREL Relocation Table":
             jmprel = cursor
-    if jmprel == None:
-        print("No jmprel found")
-        exit(1)
 
     got_start_ea = SegByBase(SegByName(".got"))
     got_end_ea = SegEnd(got_start_ea)
