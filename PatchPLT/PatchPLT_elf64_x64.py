@@ -1,29 +1,48 @@
-def main():
-    import struct
+from ida_bytes import *
 
+import idaapi
+import ida_kernwin
+import struct
+
+def main():
     u32 = lambda x: struct.unpack("<I", x)[0]
     u64 = lambda x: struct.unpack("<Q", x)[0]
-
-    from ida_bytes import get_bytes
-    import idaapi
-    import ida_kernwin
 
     image_base = idaapi.get_imagebase()
 
     assert get_bytes(image_base, 4) == b"\x7fELF", "The file looks like non-ELF binary"
-    assert get_bytes(image_base + 4, 1) == b"\x02", "Only support 64bit ELF binary"
-    if get_bytes(image_bae + 0x12, 2) != "\x3e\x00":
+    assert get_byte(image_base + 4) == 2, "Only support 64bit ELF binary"
+    if get_word(image_base + 0x12) != 0x3e:
         res = ida_kernwin.ask_yn(ida_kernwin.ASKBTN_NO, "Only x86-64 machine type has been tested.\nContinue?")
         if res != ida_kernwin.ASKBTN_YES:
             return;
 
+
+    pht_base = image_base + get_qword(image_base + 0x20)
+    pht_entry_size = get_word(image_base + 0x36)
+    pht_entry_count = get_word(image_base + 0x38)
+
     jmprel = None
-    cursor = image_base
-    while jmprel == None:
-        cursor = next_not_tail(cursor)
-        assert cursor != BADADDR, "ELF JMPREL Relocation Table not found"
-        if LineA(cursor, 0) == "; ELF JMPREL Relocation Table":
-            jmprel = cursor
+    for i in range(pht_entry_count):
+        current = pht_base + pht_entry_size * i
+        if get_dword(current) != 2:
+            continue
+        dynamic = get_qword(current + 0x10)
+        j = 0
+        tag = -1
+        while tag != 0:
+            tag = get_qword(dynamic + 0x10 * j)
+
+            if tag == 0x17:
+                jmprel = get_qword(dynamic + 0x10 * j + 0x8)
+                break
+            j += 1
+        else:
+            continue
+        break
+    else:
+        ida_kernwin.warning("Cannot find DYNAMIC PHT Entry")
+        return;
 
     got_start_ea = SegByBase(SegByName(".got"))
     got_end_ea = SegEnd(got_start_ea)
@@ -53,7 +72,6 @@ def main():
 
         real_func_name = GetCommentEx(jmprel + get_struc_size(get_struc_id("Elf64_Rela")) * extern_idx, 0).split()[-1]
 
-        print(real_func_name)
         extern_ea = extern_start_ea
         while extern_ea < extern_end_ea:
             if get_name(extern_ea) == real_func_name:
